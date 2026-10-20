@@ -29,6 +29,8 @@ body {
   background: var(--ink);
 }
 canvas { display: block; width: 100%; height: 100%; }
+/* the native cursor becomes a small version of the symbol wherever hovering does something */
+.stage.cur, .stage.cur canvas { cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48ZyBmaWxsPSIjMDUwNTA2IiBzdHJva2U9IiMwNTA1MDYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIj48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSgwIDE2IDE2KSIgLz48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSg2MCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMTIwIDE2IDE2KSIgLz48L2c+PGcgZmlsbD0iI2ZmZmZmZiI+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoNjAgMTYgMTYpIiAvPjxyZWN0IHg9IjEzLjgiIHk9IjMiIHdpZHRoPSI0LjQiIGhlaWdodD0iMjYiIHRyYW5zZm9ybT0icm90YXRlKDEyMCAxNiAxNikiIC8+PC9nPjwvc3ZnPg==") 16 16, pointer; }
 .replay {
   position: absolute;
   right: 1.8%;
@@ -229,6 +231,7 @@ canvas { display: block; width: 100%; height: 100%; }
   const HM_X = 25, HM_Y = 40, NAV_GAP = 70;
   const BRAND = 'STARfolio.2026';
   const NAV = ['/01 Home', '/02 About', '/03 Project', '/04 Contact'];
+  const navH = NAV.map(() => 0), navRects = [];
   const marks = [
     { x: 200, y: (CY - yFar) * SY, num: '(01)', label: '점, 0차원으로의 해체', t0: 0.35 },
     { x: 1500, y: CY * SY, num: '(02)', label: '선, 1차원에서의 배열', t0: 0.8 },
@@ -271,12 +274,21 @@ canvas { display: block; width: 100%; height: 100%; }
       m.h += ((hit ? 1 : 0) - m.h) * (1 - Math.exp(-10 * dt));
       if (!hit && m.h < 0.002) m.h = 0;
     }
-    const live = t >= T_READY && mouseIn && !overMark;
-    let hot = false;
+    let overNav = false;
+    for (let i = 0; i < NAV.length; i++) {
+      const r = navRects[i];
+      const hit = !!r && mouseIn && mx > r.x0 && mx < r.x1 && my > r.y0 && my < r.y1;
+      if (hit) overNav = true;
+      navH[i] += ((hit ? 1 : 0) - navH[i]) * (1 - Math.exp(-12 * dt));
+      if (!hit && navH[i] < 0.002) navH[i] = 0;
+    }
+    const live = t >= T_READY && mouseIn && !overMark && !overNav;
+    let hot = false, nearStar = false;
     for (const p of pieces) {
       let s = 0;
       if (live) s = smooth(clamp(1 - polyDist(p.poly, mx, my) / RADIUS));
       if (s > 0.02) {
+        nearStar = true;
         // push away from the pointer, blended with the shard's own heading
         let ax = p.cx - mx, ay = p.cy - my;
         const l = Math.hypot(ax, ay);
@@ -296,6 +308,7 @@ canvas { display: block; width: 100%; height: 100%; }
       if (Math.abs(p.e - s) < 0.0005 && Math.abs(p.v) < 0.002) { p.e = s; p.v = 0; }
       if (s > 0.02 || Math.abs(p.e) > 1e-3 || Math.abs(p.v) > 1e-3) hot = true;
     }
+    stage.classList.toggle('cur', overMark || overNav || nearStar);
     const goal = t >= T_READY + 0.4 && !hot ? 1 : 0;
     twk += (goal - twk) * (1 - Math.exp(-(goal ? 1.6 : 9) * dt));
     if (!goal && twk < 0.001) twk = 0;
@@ -489,7 +502,20 @@ canvas { display: block; width: 100%; height: 100%; }
     ctx.fillText(BRAND, HM_X, y);
     const ws = NAV.map(n => ctx.measureText(n).width);
     let x = W - HM_X - (ws.reduce((p, v) => p + v, 0) + NAV_GAP * (NAV.length - 1));
-    NAV.forEach((n, i) => { ctx.fillText(n, x, y); x += ws[i] + NAV_GAP; });
+    NAV.forEach((n, i) => {
+      const h = navH[i];
+      navRects[i] = { x0: x - 12, x1: x + ws[i] + 12, y0: y - 30, y1: y + 22 };
+      ctx.save();
+      ctx.globalAlpha = a * (0.92 + 0.08 * h);
+      ctx.fillStyle = h > 0.01 ? '#ffffff' : '#f2f2f0';
+      ctx.shadowColor = 'rgba(255,255,255,0.95)';
+      ctx.shadowBlur = 14 * smooth(h) * k;
+      ctx.fillText(n, x, y);
+      ctx.shadowBlur = 0;
+      if (h > 0.01) ctx.fillRect(x, y + 7, ws[i] * smooth(h), 1.5);
+      ctx.restore();
+      x += ws[i] + NAV_GAP;
+    });
     ctx.globalAlpha = 1;
   }
 
