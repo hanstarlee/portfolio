@@ -1,0 +1,581 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>HANSTAR 표지</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+/* Layout: one full-bleed 16:9 canvas (1920x1080 logical), letterboxed on black. Graphics only, no text or nav.
+   Single dark look by choice: ink black, off-white linework, graphite face. */
+:root {
+  --ink: #050506;
+  --line: #f2f2f0;
+  --guide: #d4d4d8;
+  --face: #3b3b3d;
+  --spark: #ffffff;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.stage {
+  position: relative;
+  width: min(100vw, calc(100svh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  touch-action: none;
+  background: var(--ink);
+}
+canvas { display: block; width: 100%; height: 100%; }
+.replay {
+  position: absolute;
+  right: 1.8%;
+  bottom: 3.2%;
+  width: clamp(26px, 2.3vw, 42px);
+  aspect-ratio: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--line);
+  background: rgba(5, 5, 6, 0.55);
+  border: 1px solid rgba(242, 242, 240, 0.32);
+  border-radius: 50%;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
+}
+.replay svg { width: 52%; height: 52%; display: block; }
+.replay:hover { opacity: 1; border-color: rgba(242, 242, 240, 0.8); }
+.replay:active { transform: scale(0.92); }
+.replay:focus-visible { opacity: 1; outline: 2px solid var(--line); outline-offset: 3px; }
+</style>
+
+<div class="stage" id="stage">
+  <canvas id="c" width="1920" height="1080" role="img" aria-label="HANSTAR 별표 심볼 그래픽"></canvas>
+  <button class="replay" id="replay" type="button" aria-label="모션 다시 재생" title="다시 재생">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/>
+      <path d="M3.5 4v5h5"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+(() => {
+  const W = 1920, H = 1080;
+  const SX = W / 1672, SY = H / 941;           // source logo sheet is 1672x941
+  const pt = ([x, y]) => [x * SX, y * SY];
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const easeIO = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+  const smooth = u => u * u * (3 - 2 * u);
+  const rng = seed => () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const stage = document.getElementById('stage');
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  let k = 1;
+
+  /* ---------- geometry (source-sheet coordinates) ---------- */
+  // Six-arm asterisk: three bars of equal length cross at one centre, 60 degrees apart
+  // (one vertical, two at 30 degrees from horizontal). Arm width 90, half-length 300.
+  // The body splits cleanly into a regular hexagon (side = arm width) plus six rectangular arms.
+  // S enlarges the whole symbol uniformly about its centre (slopes, symmetry and arm proportions unchanged).
+  const S = 1.36;
+  const CX = 836, CY = 470.5, ARM = 300 * S, AW = 90 * S, HW = AW / 2;
+  const rad = d => (d * Math.PI) / 180;
+  const armAngles = [-90, -30, 30, 90, 150, 210];        // clockwise on screen, starting at the top arm
+  const arms = armAngles.map(a => {
+    const d = [Math.cos(rad(a)), Math.sin(rad(a))], n = [-d[1], d[0]];
+    return {
+      tip1: [CX + ARM * d[0] - HW * n[0], CY + ARM * d[1] - HW * n[1]],
+      tip2: [CX + ARM * d[0] + HW * n[0], CY + ARM * d[1] + HW * n[1]],
+      inner: [CX + AW * Math.cos(rad(a + 30)), CY + AW * Math.sin(rad(a + 30))]   // notch between this arm and the next
+    };
+  });
+  const outlineSrc = arms.flatMap(a => [a.tip1, a.tip2, a.inner]);
+  const V = outlineSrc.map(pt);                           // 18 outline vertices, clockwise
+  const extras = [pt([CX, CY])];
+  const center = pt([CX, CY]);
+
+  // Starlight: every dot gets its own slow pulse (period about 1.6 to 3.6 s) and phase.
+  // Seeded separately so it never disturbs the other random sequences.
+  const twRng = rng(77);
+  const mkTw = () => ({ f: 0.28 + twRng() * 0.34, p: twRng() * Math.PI * 2 });
+  const vTw = V.map(mkTw);
+  const extraTw = extras.map(mkTw);
+
+  // 15 large shards: 3 rhombi make the hexagon, each arm splits into 2 triangles
+  const hexV = arms.map(a => a.inner);
+  const shardPolys = [];
+  // (15 in all: the hexagon is 3 rhombi; each arm is one rectangle cut along its diagonal into 2 large triangles)
+  for (let j = 0; j < 3; j++) shardPolys.push([[CX, CY], hexV[2 * j], hexV[2 * j + 1], hexV[(2 * j + 2) % 6]]);
+  arms.forEach((a, i) => {
+    const p0 = arms[(i + 5) % 6].inner, p1 = a.inner;
+    shardPolys.push([p0, p1, a.tip2]);
+    shardPolys.push([p0, a.tip2, a.tip1]);
+  });
+
+  function segDist(px, py, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const l2 = dx * dx + dy * dy;
+    let u = l2 ? ((px - a[0]) * dx + (py - a[1]) * dy) / l2 : 0;
+    u = clamp(u);
+    return Math.hypot(px - (a[0] + u * dx), py - (a[1] + u * dy));
+  }
+  function inside(poly, x, y) {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a[1] > y) !== (b[1] > y) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  }
+  function polyDist(poly, x, y) {
+    if (inside(poly, x, y)) return 0;
+    let m = Infinity;
+    for (let i = 0; i < poly.length; i++) m = Math.min(m, segDist(x, y, poly[i], poly[(i + 1) % poly.length]));
+    return m;
+  }
+
+  const rnd = rng(11);
+  const pieces = shardPolys.map((src, idx) => {
+    const poly = src.map(pt);
+    const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+    const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+    const edges = poly.map((a, i) => {
+      const b = poly[(i + 1) % poly.length];
+      const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      let outer = false;
+      for (let j = 0; j < V.length; j++) {
+        if (segDist(m[0], m[1], V[j], V[(j + 1) % V.length]) < 1.2) { outer = true; break; }
+      }
+      return { a, b, m, outer };
+    });
+    const corners = poly.map(p => {
+      const ai = V.findIndex(v => Math.hypot(v[0] - p[0], v[1] - p[1]) < 0.8);
+      return { p, anchor: ai >= 0, tw: ai >= 0 ? vTw[ai] : null };
+    });
+    // base direction: away from the centre of the H, with a little personality
+    let ang = Math.atan2(cy - center[1], cx - center[0]) + (rnd() - 0.5) * 1.0;
+    const base = [Math.cos(ang), Math.sin(ang)];
+    return {
+      poly, cx, cy, edges, corners, base,
+      dir: base.slice(),
+      mag: 90 + rnd() * 70,
+      rot: ((5 + rnd() * 8) * (rnd() < 0.5 ? -1 : 1) * Math.PI) / 180,
+      tone: (rnd() - 0.4) * 22,
+      e: 0, v: 0, nbrs: [],
+      extra: idx === 0 ? [extras[0]] : []
+    };
+  });
+  // neighbours: pieces that share a cut, so a cut shows up when either side leaves
+  pieces.forEach((p, i) => {
+    const set = new Set();
+    p.edges.forEach(ed => {
+      if (ed.outer) return;
+      pieces.forEach((q, j) => {
+        if (j === i) return;
+        for (const eq of q.edges) {
+          if (segDist(ed.m[0], ed.m[1], eq.a, eq.b) < 1.2) { set.add(j); break; }
+        }
+      });
+    });
+    p.nbrs = [...set];
+  });
+
+  /* ---------- guides and lattice ---------- */
+  const guides = [];
+  const addGuide = (x0, y0, x1, y1, dash, a, w) =>
+    guides.push({ x0: x0 * SX, y0: y0 * SY, x1: x1 * SX, y1: y1 * SY, dash, a, w, d: Math.random() * 0.6 });
+  const c30 = Math.cos(rad(30)), s30 = 0.5;
+  const xFar = ARM * c30 + HW * s30, xNear = ARM * c30 - HW * s30;     // tip corners of the slanted arms
+  const yFar = ARM * s30 + HW * c30, yNear = ARM * s30 - HW * c30;
+  const solidYs = [CY - ARM - 21 * S, CY + ARM + 21 * S];
+  const dashYs = [CY - ARM, CY - yFar, CY - yNear, CY, CY + yNear, CY + yFar, CY + ARM];
+  const solidXs = [CX - HW, CX + HW];
+  const dashXs = [CX - xFar, CX - xNear, CX - AW, CX + AW, CX + xNear, CX + xFar, CX - HW - 24 * S, CX + HW + 24 * S];
+  solidYs.forEach(y => addGuide(-30, y, 1702, y, false, 0.34, 1.3));
+  dashYs.forEach(y => addGuide(-30, y, 1702, y, true, 0.3, 1.2));
+  solidXs.forEach(x => addGuide(x, -30, x, 971, false, 0.32, 1.3));
+  dashXs.forEach((x, i) => addGuide(x, -30, x, 971, true, i < 6 ? 0.28 : 0.18, 1.2));
+  // the two slanted arms: centre line plus both edges, and a faint outer pair
+  [-30, 30].forEach(a => {
+    const d = [Math.cos(rad(a)), Math.sin(rad(a))], n = [-d[1], d[0]];
+    [[0, 0.18], [HW, 0.32], [-HW, 0.32], [HW + 24 * S, 0.18], [-HW - 24 * S, 0.18]].forEach(([off, al]) => {
+      const bx = CX + n[0] * off, by = CY + n[1] * off;
+      addGuide(bx - d[0] * 1000, by - d[1] * 1000, bx + d[0] * 1000, by + d[1] * 1000, true, al, 1.2);
+    });
+  });
+  const lattice = [];
+  const latYs = [CY - ARM - 21 * S, CY - yFar, CY - yNear, CY + yNear, CY + yFar, CY + ARM + 21 * S];
+  const latXs = [CX - xFar, CX - xNear, CX - HW, CX + HW, CX + xNear, CX + xFar];
+  latYs.forEach(y => latXs.forEach(x => lattice.push({ x: x * SX, y: y * SY, t: 0.1 + Math.random() * 1.9, tw: mkTw() })));
+
+  /* ---------- big marks: point / line / face, each with a hover caption ---------- */
+  // Left marks sit on the grid lines just inside the top and bottom lines, pulled in from the 60px margin so they read clearly;
+  // the right mark sits where the vertical tip line meets the centre line. Captions open to the right.
+  const MARGIN = 60, MR = 9;   // MR = half side of the square mark
+  const FONT = '400 21.33px Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';   // 18pt = 24px
+  const FONT_I = 'italic ' + FONT;
+  const FONT_S = '400 18.67px Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+  // header line: brand at the left, nav at the right; margins 40 (top/bottom) and 25 (left/right)
+  const HM_X = 25, HM_Y = 40, NAV_GAP = 70;
+  const BRAND = 'STARfolio.2026';
+  const NAV = ['/01 Home', '/02 About', '/03 Project', '/04 Contact'];
+  const marks = [
+    { x: 200, y: (CY - yFar) * SY, num: '(01)', label: '점, 0차원으로의 해체', t0: 0.35 },
+    { x: 1500, y: CY * SY, num: '(02)', label: '선, 1차원에서의 배열', t0: 0.8 },
+    { x: 229, y: (CY + yFar) * SY, num: '(03)', label: '면, 2차원의 조립', t0: 1.25 }
+  ].map(m => ({ ...m, tw: mkTw(), h: 0, w: 300 }));
+  if (document.fonts && document.fonts.load) document.fonts.load(FONT_S, 'STARfolio.2026/01Home/02About/03Project/04Contact').catch(() => {}); if (document.fonts && document.fonts.load) document.fonts.load(FONT, '점선면, 0123456789차원으로의해체에서배열조립').catch(() => {});
+
+  /* ---------- timeline ---------- */
+  const T_LINE = 2.0;
+  const edgeD = V.map(() => Math.random() * 0.5);
+  const T_FILL = T_LINE + Math.max(...edgeD) + 1.3;   // the moment the last outline edge closes
+  const T_READY = T_FILL + 1.0;
+  const anchorT = V.map(() => 0.15 + Math.random() * 1.85);
+  const extraT = extras.map(() => 0.3 + Math.random() * 1.6);
+
+  /* ---------- interaction: only shards near the pointer break away ---------- */
+  let mx = -9999, my = -9999, mouseIn = false;
+  const RADIUS = 200;                // reach of the pointer, in 1920-wide logical px
+  function toLogical(e) {
+    const r = stage.getBoundingClientRect();
+    mx = ((e.clientX - r.left) / r.width) * W;
+    my = ((e.clientY - r.top) / r.height) * H;
+  }
+  stage.addEventListener('pointermove', e => { toLogical(e); mouseIn = true; });
+  stage.addEventListener('pointerdown', e => { toLogical(e); mouseIn = true; });
+  stage.addEventListener('pointerleave', () => { mouseIn = false; });
+  stage.addEventListener('pointercancel', () => { mouseIn = false; });
+  stage.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') mouseIn = false; });
+
+  const SPRING_K = 170, SPRING_C = 19;
+  let twk = 0;       // twinkle envelope 0..1: rises once the intro is over and the pointer is away from the symbol
+  let tNow = 0;
+  function update(dt, t) {
+    let overMark = false;
+    for (const m of marks) {
+      const armed = t >= m.t0 + 0.3;
+      const hit = armed && mouseIn && (Math.hypot(mx - m.x, my - m.y) < 44 ||
+        (m.h > 0.05 && mx > m.x && mx < m.x + MR + 30 + m.w + 20 && Math.abs(my - m.y) < 50));
+      if (hit) overMark = true;
+      m.h += ((hit ? 1 : 0) - m.h) * (1 - Math.exp(-10 * dt));
+      if (!hit && m.h < 0.002) m.h = 0;
+    }
+    const live = t >= T_READY && mouseIn && !overMark;
+    let hot = false;
+    for (const p of pieces) {
+      let s = 0;
+      if (live) s = smooth(clamp(1 - polyDist(p.poly, mx, my) / RADIUS));
+      if (s > 0.02) {
+        // push away from the pointer, blended with the shard's own heading
+        let ax = p.cx - mx, ay = p.cy - my;
+        const l = Math.hypot(ax, ay);
+        if (l > 8) { ax /= l; ay /= l; } else { ax = p.base[0]; ay = p.base[1]; }
+        let tx = ax + p.base[0] * 0.45, ty = ay + p.base[1] * 0.45;
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl; ty /= tl;
+        const f = 1 - Math.exp(-9 * dt);
+        p.dir[0] += (tx - p.dir[0]) * f;
+        p.dir[1] += (ty - p.dir[1]) * f;
+        const dl = Math.hypot(p.dir[0], p.dir[1]) || 1;
+        p.dir[0] /= dl; p.dir[1] /= dl;
+      }
+      const acc = SPRING_K * (s - p.e) - SPRING_C * p.v;
+      p.v += acc * dt;
+      p.e += p.v * dt;
+      if (Math.abs(p.e - s) < 0.0005 && Math.abs(p.v) < 0.002) { p.e = s; p.v = 0; }
+      if (s > 0.02 || Math.abs(p.e) > 1e-3 || Math.abs(p.v) > 1e-3) hot = true;
+    }
+    const goal = t >= T_READY + 0.4 && !hot ? 1 : 0;
+    twk += (goal - twk) * (1 - Math.exp(-(goal ? 1.6 : 9) * dt));
+    if (!goal && twk < 0.001) twk = 0;
+  }
+
+  /* ---------- drawing ---------- */
+  const FILL = [59, 59, 61];
+  const LINE = '#f2f2f0';
+  const LINE_W = 2.2;
+
+  function polyPath(poly) {
+    ctx.beginPath();
+    poly.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+    ctx.closePath();
+  }
+  // brightness of one dot right now, 0..1, with short soft peaks like a star
+  const sparkle = o => Math.pow(0.5 + 0.5 * Math.sin(tNow * o.f * Math.PI * 2 + o.p), 2.2);
+  function anchorSq(x, y, size, t0, t, tw) {
+    const d = t - t0;
+    if (d < 0) return;
+    const w = tw && twk > 0 ? sparkle(tw) : 0, I = twk * w;
+    const s = size * (1 + 0.9 * Math.exp(-d / 0.2)) * (1 + 0.28 * I);
+    ctx.globalAlpha = clamp(d / 0.1) * (1 - 0.4 * twk * (1 - w));
+    ctx.shadowColor = 'rgba(255,255,255,0.95)';
+    ctx.shadowBlur = 26 * Math.exp(-d / 0.45) + 22 * I * k;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+  // settled anchor dot (used while shards are displaced); identical to the plain dot when twk is 0
+  function starSq(x, y, size, tw) {
+    anchorSq(x, y, size, -99, tNow, tw);
+  }
+  function plainSq(x, y, size, a) {
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.globalAlpha = 1;
+  }
+  function place(p) {
+    ctx.translate(p.cx + p.dir[0] * p.mag * p.e, p.cy + p.dir[1] * p.mag * p.e);
+    ctx.rotate(p.rot * p.e);
+    ctx.translate(-p.cx, -p.cy);
+  }
+
+  function render(t) {
+    tNow = t;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#050506';
+    ctx.fillRect(0, 0, W, H);
+
+    // grid points on the guide intersections, appearing irregularly and staying;
+    // once everything has played they breathe softly like stars
+    ctx.fillStyle = '#fff';
+    for (const d of lattice) {
+      const appear = clamp((t - d.t) / 0.35);
+      if (appear <= 0) continue;
+      const w = twk > 0 ? sparkle(d.tw) : 0, I = twk * w;
+      ctx.globalAlpha = appear * (0.4 + twk * (0.2 + 0.72 * w - 0.4));
+      ctx.shadowColor = 'rgba(255,255,255,0.9)';
+      ctx.shadowBlur = 14 * I * k;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 1.5 + 1.2 * I, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    const piecesMode = pieces.some(p => Math.abs(p.e) > 1e-3 || Math.abs(p.v) > 1e-3);
+    const order = piecesMode ? [...pieces].sort((a, b) => a.e - b.e) : pieces;
+
+    // faint trace of where each displaced shard belongs
+    if (piecesMode) {
+      ctx.setLineDash([6, 7]);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#fff';
+      for (const p of pieces) {
+        const a = clamp(Math.abs(p.e) * 2.5) * 0.3;
+        if (a < 0.02) continue;
+        ctx.globalAlpha = a;
+        polyPath(p.poly);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    // face
+    if (piecesMode) {
+      for (const p of order) {
+        const m = clamp(p.e, 0, 1);
+        const c = `rgb(${FILL[0] + p.tone * m},${FILL[1] + p.tone * m},${FILL[2] + p.tone * m})`;
+        ctx.save();
+        place(p);
+        polyPath(p.poly);
+        ctx.fillStyle = c;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = c;
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // the face shows up almost the instant the last outline edge lands
+      const prog = smooth(clamp((t - (T_FILL - 0.3)) / 0.3));
+      if (prog > 0) {
+        polyPath(V);
+        ctx.fillStyle = `rgba(${FILL.join(',')},${prog})`;
+        ctx.fill();
+      }
+    }
+
+    // guide lines extend from their centres, all at once
+    for (const g of guides) {
+      const p = easeIO(clamp((t - T_LINE - g.d) / 1.3));
+      if (p <= 0) continue;
+      const mx0 = (g.x0 + g.x1) / 2, my0 = (g.y0 + g.y1) / 2;
+      ctx.beginPath();
+      ctx.moveTo(mx0 + (g.x0 - mx0) * p, my0 + (g.y0 - my0) * p);
+      ctx.lineTo(mx0 + (g.x1 - mx0) * p, my0 + (g.y1 - my0) * p);
+      ctx.setLineDash(g.dash ? [8, 8] : []);
+      ctx.globalAlpha = g.a;
+      ctx.lineWidth = g.w;
+      ctx.strokeStyle = '#d4d4d8';
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // outline
+    ctx.lineWidth = LINE_W;
+    ctx.strokeStyle = LINE;
+    ctx.lineJoin = 'miter';
+    ctx.lineCap = 'butt';
+    if (piecesMode) {
+      for (const p of order) {
+        let near = Math.abs(p.e);
+        for (const j of p.nbrs) near = Math.max(near, Math.abs(pieces[j].e));
+        const inner = clamp(near * 3);
+        ctx.save();
+        place(p);
+        for (const ed of p.edges) {
+          ctx.globalAlpha = ed.outer ? 1 : inner;
+          ctx.beginPath();
+          ctx.moveTo(ed.a[0], ed.a[1]);
+          ctx.lineTo(ed.b[0], ed.b[1]);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        for (const c of p.corners) {
+          if (c.anchor) starSq(c.p[0], c.p[1], 9, c.tw);
+          else plainSq(c.p[0], c.p[1], 6, inner * 0.9);
+        }
+        for (const x of p.extra) starSq(x[0], x[1], 5.5, extraTw[0]);
+        ctx.restore();
+      }
+    } else {
+      if (t >= T_FILL) {
+        polyPath(V);
+        ctx.stroke();
+      } else {
+        for (let i = 0; i < V.length; i++) {
+          const q = easeIO(clamp((t - T_LINE - edgeD[i]) / 1.3));
+          if (q <= 0) continue;
+          let a = V[i], b = V[(i + 1) % V.length];
+          if (i % 2) [a, b] = [b, a];
+          ctx.beginPath();
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q);
+          ctx.stroke();
+        }
+      }
+      V.forEach((v, i) => anchorSq(v[0], v[1], 9, anchorT[i], t, vTw[i]));
+      extras.forEach((v, i) => anchorSq(v[0], v[1], 5.5, extraT[i], t, extraTw[i]));
+    }
+    drawMarks(t);
+    drawHeader(t);
+  }
+
+  function drawHeader(t) {
+    const a = smooth(clamp((t - 0.9) / 0.8));
+    if (a <= 0) return;
+    ctx.font = FONT_S;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#f2f2f0';
+    ctx.globalAlpha = a * 0.92;
+    const y = HM_Y + ctx.measureText('S').actualBoundingBoxAscent;   // cap top sits exactly on the 40px margin
+    ctx.fillText(BRAND, HM_X, y);
+    const ws = NAV.map(n => ctx.measureText(n).width);
+    let x = W - HM_X - (ws.reduce((p, v) => p + v, 0) + NAV_GAP * (NAV.length - 1));
+    NAV.forEach((n, i) => { ctx.fillText(n, x, y); x += ws[i] + NAV_GAP; });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMarks(t) {
+    marks.forEach((m, idx) => {
+      const d = t - m.t0;
+      if (d < 0) return;
+      const h = m.h;
+      // periodic swell: every ~2.2 s each mark grows, flashes and shrinks again (staggered per mark)
+      const env = clamp((d - 0.6) / 0.6);
+      const pulse = env * (1 - h) * Math.pow(0.5 + 0.5 * Math.sin((t / 2.2) * Math.PI * 2 + idx * 2.1), 2.2);
+      const half = MR * (1 + 0.9 * Math.exp(-d / 0.2)) * (1 + 0.5 * pulse + 0.25 * h);
+      const a = clamp(d / 0.1);
+      ctx.shadowColor = 'rgba(255,255,255,1)';
+      ctx.shadowBlur = (30 * Math.exp(-d / 0.45) + 16 + 46 * pulse + 32 * h) * k;
+      ctx.globalAlpha = a * (0.86 + 0.14 * Math.max(pulse, h));
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(m.x - half, m.y - half, half * 2, half * 2);
+      ctx.fillRect(m.x - half, m.y - half, half * 2, half * 2);
+      ctx.shadowBlur = 0;
+      if (h > 0.01) {
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.font = FONT;
+        m.w = ctx.measureText(m.label).width;
+        const s = smooth(h), tx = m.x + MR + 30, dx = -14 * (1 - s);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tx - 12, m.y - 48, (m.w + 24) * s, 96);
+        ctx.clip();
+        ctx.globalAlpha = s;
+        ctx.fillStyle = '#f2f2f0';
+        ctx.font = FONT_I;
+        ctx.fillText(m.num, tx + dx, m.y - 17);
+        ctx.font = FONT;
+        ctx.fillText(m.label, tx + dx, m.y + 17);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  /* ---------- sizing and loop ---------- */
+  function fit() {
+    const r = stage.getBoundingClientRect();
+    const d = window.devicePixelRatio || 1;
+    k = clamp((r.width * d) / W, 1, 2);
+    cv.width = Math.round(W * k);
+    cv.height = Math.round(H * k);
+  }
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(stage);
+  else window.addEventListener('resize', fit);
+
+  // The intro (points, lines, face) starts once the cover is on screen, after a short black hold.
+  // It always plays: it is the content of the cover, so it ignores reduced-motion skipping.
+  const HOLD_IN = 0.5;
+  let t0 = null, last = performance.now(), visible = true, done = false;
+  const restart = now => {
+    t0 = now + HOLD_IN * 1000;
+    done = false;
+    twk = 0;
+    pieces.forEach(p => { p.e = 0; p.v = 0; p.dir = p.base.slice(); });
+  };
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: 0.4 }).observe(stage);
+  }
+  stage.addEventListener('dblclick', () => restart(performance.now()));
+  const replayBtn = document.getElementById('replay');
+  replayBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  replayBtn.addEventListener('pointermove', e => e.stopPropagation());
+  replayBtn.addEventListener('dblclick', e => e.stopPropagation());
+  replayBtn.addEventListener('click', () => { restart(performance.now()); replayBtn.blur(); });
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.033);
+    last = now;
+    if (!done && (document.hidden || !visible)) t0 = null;
+    else if (t0 === null) { if (done) t0 = now - 20000; else restart(now); }
+    const t = t0 === null ? -1 : (now - t0) / 1000;
+    if (t >= T_READY) done = true;
+    update(dt, t);
+    render(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
