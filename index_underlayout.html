@@ -1,0 +1,968 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>STARFOLIO</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+/* Layout: one full-bleed 16:9 canvas (1920x1080 logical), letterboxed on black. Graphics only, no text or nav.
+   Single dark look by choice: ink black, off-white linework, graphite face. */
+:root {
+  --ink: #050506;
+  --line: #f2f2f0;
+  --guide: #d4d4d8;
+  --face: #3b3b3d;
+  --spark: #ffffff;
+  color-scheme: dark;
+}
+html { background: var(--ink); }
+body { margin: 0; background: var(--ink); overflow-x: hidden; }
+.page { width: min(100vw, calc(100svh * 16 / 9)); margin: 0 auto; }
+.band { position: absolute; left: 0; width: 1920px; transform-origin: 0 0; pointer-events: none; }
+.band { clip-path: inset(0 0 100% 0); }
+.band .gl { top: 0; height: 100%; clip-path: none; transition: none; }
+.cover { position: relative; height: 100svh; display: flex; align-items: center; }
+.stage {
+  position: relative;
+  width: 100%;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  touch-action: pan-y;
+  background: var(--ink);
+}
+canvas { display: block; width: 100%; height: 100%; }
+/* the native cursor becomes a small version of the symbol wherever hovering does something */
+.stage.cur, .stage.cur canvas { cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMiIgaGVpZ2h0PSIyMiIgdmlld0JveD0iMCAwIDMyIDMyIj48ZyBmaWxsPSIjMDUwNTA2IiBzdHJva2U9IiMwNTA1MDYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIj48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSgwIDE2IDE2KSIgLz48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSg2MCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMTIwIDE2IDE2KSIgLz48L2c+PGcgZmlsbD0iI2ZmZmZmZiI+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoNjAgMTYgMTYpIiAvPjxyZWN0IHg9IjEzLjgiIHk9IjMiIHdpZHRoPSI0LjQiIGhlaWdodD0iMjYiIHRyYW5zZm9ybT0icm90YXRlKDEyMCAxNiAxNikiIC8+PC9nPjwvc3ZnPg==") 11 11, pointer; }
+.replay {
+  position: absolute;
+  right: 1.8%;
+  bottom: 3.2%;
+  width: clamp(26px, 2.3vw, 42px);
+  aspect-ratio: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--line);
+  background: rgba(5, 5, 6, 0.55);
+  border: 1px solid rgba(242, 242, 240, 0.32);
+  border-radius: 50%;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
+}
+.replay svg { width: 52%; height: 52%; display: block; }
+.replay:hover { opacity: 1; border-color: rgba(242, 242, 240, 0.8); }
+.replay:active { transform: scale(0.92); }
+.replay:focus-visible { opacity: 1; outline: 2px solid var(--line); outline-offset: 3px; }
+
+/* ---------- intro: continues the cover grid downward (1920 x 1640 logical, scaled like the cover) ---------- */
+.intro { position: relative; width: 100%; overflow: hidden; background: var(--ink); }
+.introIn {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1640px;
+  transform-origin: 0 0; color: #fff;
+  font-family: Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+.gl { position: absolute; will-change: clip-path; }
+.gl.v { width: 1.2px; }
+.gl.h { height: 1.2px; left: 0; width: 1920px; }
+.gl.v.dash { background: repeating-linear-gradient(to bottom, rgba(212,212,216,0.3) 0 8px, transparent 8px 16px); background-position: 0 -10.43px; }
+.gl.h.dash { background: repeating-linear-gradient(to right, rgba(212,212,216,0.3) 0 8px, transparent 8px 16px); }
+.gl.v.faint { background: repeating-linear-gradient(to bottom, rgba(212,212,216,0.18) 0 8px, transparent 8px 16px); background-position: 0 -10.43px; }
+.gl.solid { background: rgba(242,242,240,0.32); }
+.gl.strong { background: rgba(242,242,240,0.75); }
+.gl.v.edge { width: 1.8px; background: rgba(242,242,240,0.85); }   /* the two side-margin lines */
+.mk { position: absolute; left: 0; top: 640px; width: 1px; height: 1px; }
+
+/* every block of text sits on a black plate, so no grid line ever runs through a letter */
+.plate { position: absolute; box-sizing: border-box; background: var(--ink); white-space: nowrap; }
+.plate.bare { background: none; }
+.hero { left: 0; top: 242px; width: 1920px; height: 396px; padding: 42px 60px 0;
+  font-size: 72px; line-height: 108px; font-weight: 500; letter-spacing: -0.01em; text-transform: uppercase; }
+.hero .row { display: flex; justify-content: space-between; align-items: flex-start; }
+.sm { font-size: 16px; line-height: 24px; font-weight: 400; text-transform: uppercase; padding: 12px 0 0 14px; color: #f2f2f0; }   /* smallest text = 12pt */
+.md { font-size: 36px; line-height: 54px; font-weight: 500; letter-spacing: -0.02em; padding: 8px 0 0 22px; }
+.md .yr { position: absolute; right: 62px; top: 8px; }
+.ln { display: block; }
+.w { display: inline-block; overflow: hidden; vertical-align: top; }
+.w > i { display: inline-block; font-style: normal; transform: translateY(118%); opacity: 0;
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.35s ease-out;
+  transition-delay: calc(var(--d, 0s) + var(--i, 0) * 0.05s); }
+.in .w > i { transform: none; opacity: 1; }
+.ast { display: inline-block; width: 0.74em; height: 0.74em; vertical-align: -0.02em; margin: 0 0.03em; }
+
+/* ID photo placeholder: appears once the headline block has scrolled past, leaves with the intro */
+.photo { position: absolute; left: 60px; top: 720px; width: 459px; height: 612px; transform: translateY(22px); transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.photo.on { transform: none; }
+.photo svg { display: block; width: 459px; height: 612px; overflow: visible; }
+.pf { opacity: 0; transition: opacity 0.35s; }
+.photo.on .pf { opacity: 1; transition-delay: 0.15s; }
+.pb { stroke-dasharray: 2138; stroke-dashoffset: 2138; transition: stroke-dashoffset 0.7s cubic-bezier(0.6, 0, 0.2, 1); }
+.photo.on .pb { stroke-dashoffset: 0; }
+.pd { stroke-dasharray: 766; stroke-dashoffset: 766; transition: stroke-dashoffset 0.55s cubic-bezier(0.6, 0, 0.2, 1) 0.25s; }
+.photo.on .pd { stroke-dashoffset: 0; }
+
+/* ---------- works: light square-grid sheet (240px cells, 8 columns), labels with a block marker; hover reveals the cover tile by tile ---------- */
+.works { position: relative; width: 100%; overflow: hidden; background: #f2f2f2; color: #0a0a0a; }
+.worksIn {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 5520px; transform-origin: 0 0;
+  background-color: #f2f2f2;
+  background-image: linear-gradient(to right, rgba(0,0,0,0.11) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.11) 1px, transparent 1px);
+  background-size: 240px 240px;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.11);
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, Pretendard, "Apple SD Gothic Neo", monospace;
+}
+.worksIn::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.55; mix-blend-mode: multiply; z-index: 5;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+}
+.fi { position: absolute; z-index: 3; width: 239px; box-sizing: border-box; padding: 8px 0 10px 24px; background: #f2f2f2; font-family: Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", sans-serif; }
+.fi b { display: block; font-weight: 500; font-size: 24px; line-height: 32px; text-transform: uppercase; letter-spacing: 0.01em; margin-bottom: 14px; }
+.fi span { display: block; font-size: 16px; line-height: 24px; color: #1a1a1a; white-space: nowrap; }
+.fi.nav span { line-height: 26px; }
+.fi.nav .cur { text-decoration: underline; text-underline-offset: 3px; }
+.fbig { position: absolute; z-index: 3; left: 60px; margin: 0; font-family: Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", sans-serif; font-weight: 600; letter-spacing: -0.045em; line-height: 0.74; white-space: nowrap; color: #0a0a0a; }
+.wl {
+  position: absolute; z-index: 3; width: 479px; height: 239px; box-sizing: border-box; padding: 0 0 20px 24px;
+  display: flex; align-items: flex-end; background: #f2f2f2; pointer-events: none;   /* plate: no grid line runs through the text */
+  font-size: 21.33px; line-height: 1; white-space: nowrap;
+  opacity: 0; transform: translateY(14px); transition: opacity 0.45s ease-out, transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wl.in { opacity: 1; transform: none; }
+.wlt { display: flex; align-items: center; gap: 14px; pointer-events: auto; padding: 10px 14px 10px 0; cursor: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMiIgaGVpZ2h0PSIyMiIgdmlld0JveD0iMCAwIDMyIDMyIj48ZyBmaWxsPSIjMDUwNTA2IiBzdHJva2U9IiMwNTA1MDYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIj48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSgwIDE2IDE2KSIgLz48cmVjdCB4PSIxMy44IiB5PSIzIiB3aWR0aD0iNC40IiBoZWlnaHQ9IjI2IiB0cmFuc2Zvcm09InJvdGF0ZSg2MCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMTIwIDE2IDE2KSIgLz48L2c+PGcgZmlsbD0iI2ZmZmZmZiI+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoMCAxNiAxNikiIC8+PHJlY3QgeD0iMTMuOCIgeT0iMyIgd2lkdGg9IjQuNCIgaGVpZ2h0PSIyNiIgdHJhbnNmb3JtPSJyb3RhdGUoNjAgMTYgMTYpIiAvPjxyZWN0IHg9IjEzLjgiIHk9IjMiIHdpZHRoPSI0LjQiIGhlaWdodD0iMjYiIHRyYW5zZm9ybT0icm90YXRlKDEyMCAxNiAxNikiIC8+PC9nPjwvc3ZnPg==") 11 11, pointer; }
+.wlt i { display: block; width: 16px; height: 16px; background: #0a0a0a; flex: none; transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.wl.hov i { width: 32px; }
+.tol { position: absolute; left: 0; top: 0; display: block; }
+.wimg { position: absolute; z-index: 2; pointer-events: none; }
+.tile { position: absolute; width: 240px; height: 240px; overflow: hidden; opacity: 0; transition: opacity 0.1s linear; }
+.wimg.on .tile { opacity: 1; transition-delay: calc(var(--k) * var(--st, 55ms)); }
+.timg { position: absolute; background-size: cover; background-position: center; }
+.timg svg { display: block; }
+</style>
+
+<div class="page" id="page">
+<div class="cover" id="cover">
+<div class="band" id="bandT"></div><div class="band b" id="bandB"></div>
+<div class="stage" id="stage">
+  <canvas id="c" width="1920" height="1080" role="img" aria-label="HANSTAR 별표 심볼 그래픽"></canvas>
+  <button class="replay" id="replay" type="button" aria-label="모션 다시 재생" title="다시 재생">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/>
+      <path d="M3.5 4v5h5"/>
+    </svg>
+  </button>
+</div>
+</div>
+
+<section class="intro" id="intro" aria-label="소개">
+  <div class="introIn" id="introIn">
+    <div class="mk" id="mk"></div>
+    <div class="plate hero" id="hero">
+      <div class="row"><span class="ln" style="--d:0s"><span>WHO’S <svg class="ast" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="13.6" y="2" width="4.8" height="28"/><rect x="13.6" y="2" width="4.8" height="28" transform="rotate(60 16 16)"/><rect x="13.6" y="2" width="4.8" height="28" transform="rotate(120 16 16)"/></g></svg>?</span></span><span class="ln" style="--d:0.08s"><span>I’M A DESIGNER</span></span></div>
+      <div class="row"><span class="ln" style="--d:0.16s"><span>WHO BREAKS THE</span></span><span class="ln" style="--d:0.24s"><span>FAMILIAR</span></span></div>
+      <div class="row"><span class="ln" style="--d:0.32s"><span>AND BUILDS</span></span><span class="ln" style="--d:0.4s"><span>SOMETHING NEW.</span></span></div>
+    </div>
+    <div class="photo" id="photo" role="img" aria-label="증명사진 자리">
+      <svg viewBox="0 0 459 612">
+        <rect class="pf" x="0" y="0" width="459" height="612" fill="#3b3b3d"/>
+        <line class="pd" x1="0" y1="0" x2="459" y2="612" stroke="rgba(242,242,240,0.5)" stroke-width="1.2"/>
+        <line class="pd" x1="459" y1="0" x2="0" y2="612" stroke="rgba(242,242,240,0.5)" stroke-width="1.2"/>
+        <rect class="pb" x="0.6" y="0.6" width="457.8" height="610.8" fill="none" stroke="rgba(242,242,240,0.8)" stroke-width="1.2"/>
+      </svg>
+    </div>
+  </div>
+</section>
+</div>
+
+<section class="works" id="works" aria-label="작품">
+  <div class="worksIn" id="worksIn"></div>
+</section>
+
+<script>
+(() => {
+  const W = 1920, H = 1080;
+  const SX = W / 1672, SY = H / 941;           // source logo sheet is 1672x941
+  const pt = ([x, y]) => [x * SX, y * SY];
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const easeIO = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+  const smooth = u => u * u * (3 - 2 * u);
+  const rng = seed => () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const stage = document.getElementById('stage');
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  let k = 1;
+
+  /* ---------- geometry (source-sheet coordinates) ---------- */
+  // Six-arm asterisk: three bars of equal length cross at one centre, 60 degrees apart
+  // (one vertical, two at 30 degrees from horizontal). Arm width 90, half-length 300.
+  // The body splits cleanly into a regular hexagon (side = arm width) plus six rectangular arms.
+  // S enlarges the whole symbol uniformly about its centre (slopes, symmetry and arm proportions unchanged).
+  const S = 1.36;
+  const CX = 836, CY = 470.5, ARM = 300 * S, AW = 90 * S, HW = AW / 2;
+  const rad = d => (d * Math.PI) / 180;
+  const armAngles = [-90, -30, 30, 90, 150, 210];        // clockwise on screen, starting at the top arm
+  const arms = armAngles.map(a => {
+    const d = [Math.cos(rad(a)), Math.sin(rad(a))], n = [-d[1], d[0]];
+    return {
+      tip1: [CX + ARM * d[0] - HW * n[0], CY + ARM * d[1] - HW * n[1]],
+      tip2: [CX + ARM * d[0] + HW * n[0], CY + ARM * d[1] + HW * n[1]],
+      inner: [CX + AW * Math.cos(rad(a + 30)), CY + AW * Math.sin(rad(a + 30))]   // notch between this arm and the next
+    };
+  });
+  const outlineSrc = arms.flatMap(a => [a.tip1, a.tip2, a.inner]);
+  const V = outlineSrc.map(pt);                           // 18 outline vertices, clockwise
+  const extras = [pt([CX, CY])];
+  const center = pt([CX, CY]);
+
+  // Starlight: every dot gets its own slow pulse (period about 1.6 to 3.6 s) and phase.
+  // Seeded separately so it never disturbs the other random sequences.
+  const twRng = rng(77);
+  const mkTw = () => ({ f: 0.28 + twRng() * 0.34, p: twRng() * Math.PI * 2 });
+  const vTw = V.map(mkTw);
+  const extraTw = extras.map(mkTw);
+
+  // 15 large shards: 3 rhombi make the hexagon, each arm splits into 2 triangles
+  const hexV = arms.map(a => a.inner);
+  const shardPolys = [];
+  // (15 in all: the hexagon is 3 rhombi; each arm is one rectangle cut along its diagonal into 2 large triangles)
+  for (let j = 0; j < 3; j++) shardPolys.push([[CX, CY], hexV[2 * j], hexV[2 * j + 1], hexV[(2 * j + 2) % 6]]);
+  arms.forEach((a, i) => {
+    const p0 = arms[(i + 5) % 6].inner, p1 = a.inner;
+    shardPolys.push([p0, p1, a.tip2]);
+    shardPolys.push([p0, a.tip2, a.tip1]);
+  });
+
+  function segDist(px, py, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const l2 = dx * dx + dy * dy;
+    let u = l2 ? ((px - a[0]) * dx + (py - a[1]) * dy) / l2 : 0;
+    u = clamp(u);
+    return Math.hypot(px - (a[0] + u * dx), py - (a[1] + u * dy));
+  }
+  function inside(poly, x, y) {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if ((a[1] > y) !== (b[1] > y) && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  }
+  function polyDist(poly, x, y) {
+    if (inside(poly, x, y)) return 0;
+    let m = Infinity;
+    for (let i = 0; i < poly.length; i++) m = Math.min(m, segDist(x, y, poly[i], poly[(i + 1) % poly.length]));
+    return m;
+  }
+
+  const rnd = rng(11);
+  const pieces = shardPolys.map((src, idx) => {
+    const poly = src.map(pt);
+    const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+    const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+    const edges = poly.map((a, i) => {
+      const b = poly[(i + 1) % poly.length];
+      const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      let outer = false;
+      for (let j = 0; j < V.length; j++) {
+        if (segDist(m[0], m[1], V[j], V[(j + 1) % V.length]) < 1.2) { outer = true; break; }
+      }
+      return { a, b, m, outer };
+    });
+    const corners = poly.map(p => {
+      const ai = V.findIndex(v => Math.hypot(v[0] - p[0], v[1] - p[1]) < 0.8);
+      return { p, anchor: ai >= 0, tw: ai >= 0 ? vTw[ai] : null };
+    });
+    // base direction: away from the centre of the H, with a little personality
+    let ang = Math.atan2(cy - center[1], cx - center[0]) + (rnd() - 0.5) * 1.0;
+    const base = [Math.cos(ang), Math.sin(ang)];
+    return {
+      poly, cx, cy, edges, corners, base,
+      dir: base.slice(),
+      mag: 90 + rnd() * 70,
+      rot: ((5 + rnd() * 8) * (rnd() < 0.5 ? -1 : 1) * Math.PI) / 180,
+      tone: (rnd() - 0.4) * 22,
+      e: 0, v: 0, nbrs: [],
+      extra: idx === 0 ? [extras[0]] : []
+    };
+  });
+  // neighbours: pieces that share a cut, so a cut shows up when either side leaves
+  pieces.forEach((p, i) => {
+    const set = new Set();
+    p.edges.forEach(ed => {
+      if (ed.outer) return;
+      pieces.forEach((q, j) => {
+        if (j === i) return;
+        for (const eq of q.edges) {
+          if (segDist(ed.m[0], ed.m[1], eq.a, eq.b) < 1.2) { set.add(j); break; }
+        }
+      });
+    });
+    p.nbrs = [...set];
+  });
+
+  /* ---------- guides and lattice ---------- */
+  const guides = [];
+  const addGuide = (x0, y0, x1, y1, dash, a, w) =>
+    guides.push({ x0: x0 * SX, y0: y0 * SY, x1: x1 * SX, y1: y1 * SY, dash, a, w, d: Math.random() * 0.6 });
+  const c30 = Math.cos(rad(30)), s30 = 0.5;
+  const xFar = ARM * c30 + HW * s30, xNear = ARM * c30 - HW * s30;     // tip corners of the slanted arms
+  const yFar = ARM * s30 + HW * c30, yNear = ARM * s30 - HW * c30;
+  const solidYs = [CY - ARM - 21 * S, CY + ARM + 21 * S];
+  const dashYs = [CY - ARM, CY - yFar, CY, CY + yFar, CY + ARM];
+  const solidXs = [CX - HW, CX + HW];
+  const dashXs = [CX - xFar, CX - xNear, CX - AW, CX + AW, CX + xNear, CX + xFar];
+  solidYs.forEach(y => addGuide(-30, y, 1702, y, false, 0.34, 1.3));
+  dashYs.forEach(y => addGuide(-30, y, 1702, y, true, 0.3, 1.2));
+  solidXs.forEach(x => addGuide(x, -30, x, 971, false, 0.32, 1.3));
+  dashXs.forEach((x, i) => addGuide(x, -30, x, 971, true, i < 6 ? 0.28 : 0.18, 1.2));
+  // the two slanted arms: centre line plus both edges, and a faint outer pair
+  [-30, 30].forEach(a => {
+    const d = [Math.cos(rad(a)), Math.sin(rad(a))], n = [-d[1], d[0]];
+    [].forEach(([off, al]) => {   // diagonal guides removed
+      const bx = CX + n[0] * off, by = CY + n[1] * off;
+      addGuide(bx - d[0] * 1000, by - d[1] * 1000, bx + d[0] * 1000, by + d[1] * 1000, false, al, 1.3);   // main diagonals: solid
+    });
+  });
+  const lattice = [];
+  const latYs = [CY - ARM - 21 * S, CY - yFar, CY - yNear, CY + yNear, CY + yFar, CY + ARM + 21 * S];
+  const latXs = [CX - xFar, CX - xNear, CX - HW, CX + HW, CX + xNear, CX + xFar];
+  latYs.forEach(y => latXs.forEach(x => lattice.push({ x: x * SX, y: y * SY, t: 0.1 + Math.random() * 1.9, tw: mkTw() })));
+
+  /* ---------- big marks: point / line / face, each with a hover caption ---------- */
+  // Left marks sit on the grid lines just inside the top and bottom lines, pulled in from the 60px margin so they read clearly;
+  // the right mark sits where the vertical tip line meets the centre line. Captions open to the right.
+  const MARGIN = 60, MR = 7;   // MR = half side of the square mark
+  const FONT = '400 21.33px Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';   // 18pt = 24px
+  const FONT_I = 'italic ' + FONT;
+  const FONT_S = '400 18.67px Pretendard, "Pretendard Variable", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
+  // header line: brand at the left, nav at the right; margins 40 (top/bottom) and 25 (left/right)
+  const HM_X = 25, HM_Y = 40, NAV_GAP = 70;
+  const BRAND = 'STARfolio.2026';
+  const NAV = ['/01 Home', '/02 About', '/03 Project', '/04 Contact'];
+  const navH = NAV.map(() => 0), navRects = [];
+  const marks = [
+    { x: 200, y: (CY - yFar) * SY, num: '(01)', label: '점, 0차원으로의 해체', t0: 0.35 },
+    { x: 1500, y: CY * SY, num: '(02)', label: '선, 1차원에서의 배열', t0: 0.8 },
+    { x: 229, y: (CY + yFar) * SY, num: '(03)', label: '면, 2차원의 조립', t0: 1.25 }
+  ].map(m => ({ ...m, tw: mkTw(), h: 0, w: 300 }));
+  if (document.fonts && document.fonts.load) document.fonts.load(FONT_S, 'STARfolio.2026/01Home/02About/03Project/04Contact').catch(() => {}); if (document.fonts && document.fonts.load) document.fonts.load(FONT, '점선면, 0123456789차원으로의해체에서배열조립').catch(() => {});
+
+  /* ---------- timeline ---------- */
+  const T_LINE = 2.0;
+  const edgeD = V.map(() => Math.random() * 0.5);
+  const T_FILL = T_LINE + Math.max(...edgeD) + 1.3;   // the moment the last outline edge closes
+  const T_READY = T_FILL + 1.0;
+  const anchorT = V.map(() => 0.15 + Math.random() * 1.85);
+  const extraT = extras.map(() => 0.3 + Math.random() * 1.6);
+
+  /* ---------- interaction: only shards near the pointer break away ---------- */
+  let mx = -9999, my = -9999, mouseIn = false;
+  const RADIUS = 200;                // reach of the pointer, in 1920-wide logical px
+  function toLogical(e) {
+    const r = stage.getBoundingClientRect();
+    mx = ((e.clientX - r.left) / r.width) * W;
+    my = ((e.clientY - r.top) / r.height) * H;
+  }
+  stage.addEventListener('pointermove', e => { toLogical(e); mouseIn = true; });
+  stage.addEventListener('pointerdown', e => { toLogical(e); mouseIn = true; });
+  stage.addEventListener('pointerleave', () => { mouseIn = false; });
+  stage.addEventListener('pointercancel', () => { mouseIn = false; });
+  stage.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') mouseIn = false; });
+
+  const SPRING_K = 170, SPRING_C = 19;
+  let twk = 0;       // twinkle envelope 0..1: rises once the intro is over and the pointer is away from the symbol
+  let tNow = 0;
+  function update(dt, t) {
+    let overMark = false;
+    for (const m of marks) {
+      const armed = t >= m.t0 + 0.3;
+      const hit = armed && mouseIn && (Math.hypot(mx - m.x, my - m.y) < 44 ||
+        (m.h > 0.05 && mx > m.x && mx < m.x + MR + 30 + m.w + 20 && Math.abs(my - m.y) < 50));
+      if (hit) overMark = true;
+      m.h += ((hit ? 1 : 0) - m.h) * (1 - Math.exp(-10 * dt));
+      if (!hit && m.h < 0.002) m.h = 0;
+    }
+    let overNav = false;
+    for (let i = 0; i < NAV.length; i++) {
+      const r = navRects[i];
+      const hit = !!r && mouseIn && mx > r.x0 && mx < r.x1 && my > r.y0 && my < r.y1;
+      if (hit) overNav = true;
+      navH[i] += ((hit ? 1 : 0) - navH[i]) * (1 - Math.exp(-12 * dt));
+      if (!hit && navH[i] < 0.002) navH[i] = 0;
+    }
+    const live = t >= T_READY && mouseIn && !overMark && !overNav;
+    let hot = false, nearStar = false;
+    for (const p of pieces) {
+      let s = 0;
+      if (live) s = smooth(clamp(1 - polyDist(p.poly, mx, my) / RADIUS));
+      if (s > 0.02) {
+        nearStar = true;
+        // push away from the pointer, blended with the shard's own heading
+        let ax = p.cx - mx, ay = p.cy - my;
+        const l = Math.hypot(ax, ay);
+        if (l > 8) { ax /= l; ay /= l; } else { ax = p.base[0]; ay = p.base[1]; }
+        let tx = ax + p.base[0] * 0.45, ty = ay + p.base[1] * 0.45;
+        const tl = Math.hypot(tx, ty) || 1;
+        tx /= tl; ty /= tl;
+        const f = 1 - Math.exp(-9 * dt);
+        p.dir[0] += (tx - p.dir[0]) * f;
+        p.dir[1] += (ty - p.dir[1]) * f;
+        const dl = Math.hypot(p.dir[0], p.dir[1]) || 1;
+        p.dir[0] /= dl; p.dir[1] /= dl;
+      }
+      const acc = SPRING_K * (s - p.e) - SPRING_C * p.v;
+      p.v += acc * dt;
+      p.e += p.v * dt;
+      if (Math.abs(p.e - s) < 0.0005 && Math.abs(p.v) < 0.002) { p.e = s; p.v = 0; }
+      if (s > 0.02 || Math.abs(p.e) > 1e-3 || Math.abs(p.v) > 1e-3) hot = true;
+    }
+    stage.classList.toggle('cur', overMark || overNav || nearStar);
+    const goal = t >= T_READY + 0.4 && !hot ? 1 : 0;
+    twk += (goal - twk) * (1 - Math.exp(-(goal ? 1.6 : 9) * dt));
+    if (!goal && twk < 0.001) twk = 0;
+  }
+
+  /* ---------- drawing ---------- */
+  const FILL = [59, 59, 61];
+  const LINE = '#f2f2f0';
+  const LINE_W = 2.2;
+
+  function polyPath(poly) {
+    ctx.beginPath();
+    poly.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+    ctx.closePath();
+  }
+  // brightness of one dot right now, 0..1, with short soft peaks like a star
+  const sparkle = o => Math.pow(0.5 + 0.5 * Math.sin(tNow * o.f * Math.PI * 2 + o.p), 2.2);
+  function anchorSq(x, y, size, t0, t, tw) {
+    const d = t - t0;
+    if (d < 0) return;
+    const w = tw && twk > 0 ? sparkle(tw) : 0, I = twk * w;
+    const s = size * (1 + 0.9 * Math.exp(-d / 0.2)) * (1 + 0.28 * I);
+    ctx.globalAlpha = clamp(d / 0.1) * (1 - 0.4 * twk * (1 - w));
+    ctx.shadowColor = 'rgba(255,255,255,0.95)';
+    ctx.shadowBlur = 26 * Math.exp(-d / 0.45) + 22 * I * k;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - s / 2, y - s / 2, s, s);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+  // settled anchor dot (used while shards are displaced); identical to the plain dot when twk is 0
+  function starSq(x, y, size, tw) {
+    anchorSq(x, y, size, -99, tNow, tw);
+  }
+  function plainSq(x, y, size, a) {
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+    ctx.globalAlpha = 1;
+  }
+  function place(p) {
+    ctx.translate(p.cx + p.dir[0] * p.mag * p.e, p.cy + p.dir[1] * p.mag * p.e);
+    ctx.rotate(p.rot * p.e);
+    ctx.translate(-p.cx, -p.cy);
+  }
+
+  function render(t) {
+    tNow = t;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#050506';
+    ctx.fillRect(0, 0, W, H);
+
+    // grid points on the guide intersections, appearing irregularly and staying;
+    // once everything has played they breathe softly like stars
+    ctx.fillStyle = '#fff';
+    for (const d of lattice) {
+      const appear = clamp((t - d.t) / 0.35);
+      if (appear <= 0) continue;
+      const w = twk > 0 ? sparkle(d.tw) : 0, I = twk * w;
+      ctx.globalAlpha = appear * (0.4 + twk * (0.2 + 0.72 * w - 0.4));
+      ctx.shadowColor = 'rgba(255,255,255,0.9)';
+      ctx.shadowBlur = 14 * I * k;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 1.5 + 1.2 * I, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    const piecesMode = pieces.some(p => Math.abs(p.e) > 1e-3 || Math.abs(p.v) > 1e-3);
+    const order = piecesMode ? [...pieces].sort((a, b) => a.e - b.e) : pieces;
+
+    // faint trace of where each displaced shard belongs
+    if (piecesMode) {
+      ctx.setLineDash([6, 7]);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#fff';
+      for (const p of pieces) {
+        const a = clamp(Math.abs(p.e) * 2.5) * 0.3;
+        if (a < 0.02) continue;
+        ctx.globalAlpha = a;
+        polyPath(p.poly);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+
+    // face
+    if (piecesMode) {
+      for (const p of order) {
+        const m = clamp(p.e, 0, 1);
+        const c = `rgb(${FILL[0] + p.tone * m},${FILL[1] + p.tone * m},${FILL[2] + p.tone * m})`;
+        ctx.save();
+        place(p);
+        polyPath(p.poly);
+        ctx.fillStyle = c;
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = c;
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // the face shows up almost the instant the last outline edge lands
+      const prog = smooth(clamp((t - (T_FILL - 0.3)) / 0.3));
+      if (prog > 0) {
+        polyPath(V);
+        ctx.fillStyle = `rgba(${FILL.join(',')},${prog})`;
+        ctx.fill();
+      }
+    }
+
+    // guide lines extend from their centres, all at once
+    for (const g of guides) {
+      const p = easeIO(clamp((t - T_LINE - g.d) / 1.3));
+      if (p <= 0) continue;
+      ctx.globalAlpha = g.a;
+      ctx.lineWidth = g.w;
+      ctx.strokeStyle = '#d4d4d8';
+      if (g.dash && p < 1) {
+        // dashes sit at fixed places along the line and switch on one by one outward from the centre
+        // (a moving dash phase is what made the old version crawl like a chain)
+        const L = Math.hypot(g.x1 - g.x0, g.y1 - g.y0), ux = (g.x1 - g.x0) / L, uy = (g.y1 - g.y0) / L;
+        const lo = (L / 2) * (1 - p), hi = (L / 2) * (1 + p);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        for (let n = Math.max(0, Math.ceil((lo - 4) / 16)), end = Math.floor((hi - 4) / 16); n <= end; n++) {
+          const a = n * 16;
+          ctx.moveTo(g.x0 + ux * a, g.y0 + uy * a);
+          ctx.lineTo(g.x0 + ux * (a + 8), g.y0 + uy * (a + 8));
+        }
+        ctx.stroke();
+        continue;
+      }
+      const mx0 = (g.x0 + g.x1) / 2, my0 = (g.y0 + g.y1) / 2;
+      ctx.beginPath();
+      ctx.moveTo(mx0 + (g.x0 - mx0) * p, my0 + (g.y0 - my0) * p);
+      ctx.lineTo(mx0 + (g.x1 - mx0) * p, my0 + (g.y1 - my0) * p);
+      ctx.setLineDash(g.dash ? [8, 8] : []);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // outline
+    ctx.lineWidth = LINE_W;
+    ctx.strokeStyle = LINE;
+    ctx.lineJoin = 'miter';
+    ctx.lineCap = 'butt';
+    if (piecesMode) {
+      for (const p of order) {
+        let near = Math.abs(p.e);
+        for (const j of p.nbrs) near = Math.max(near, Math.abs(pieces[j].e));
+        const inner = clamp(near * 3);
+        ctx.save();
+        place(p);
+        for (const ed of p.edges) {
+          ctx.globalAlpha = ed.outer ? 1 : inner;
+          ctx.beginPath();
+          ctx.moveTo(ed.a[0], ed.a[1]);
+          ctx.lineTo(ed.b[0], ed.b[1]);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        for (const c of p.corners) {
+          if (c.anchor) starSq(c.p[0], c.p[1], 9, c.tw);
+          else plainSq(c.p[0], c.p[1], 6, inner * 0.9);
+        }
+        for (const x of p.extra) starSq(x[0], x[1], 5.5, extraTw[0]);
+        ctx.restore();
+      }
+    } else {
+      if (t >= T_FILL) {
+        polyPath(V);
+        ctx.stroke();
+      } else {
+        for (let i = 0; i < V.length; i++) {
+          const q = easeIO(clamp((t - T_LINE - edgeD[i]) / 1.3));
+          if (q <= 0) continue;
+          let a = V[i], b = V[(i + 1) % V.length];
+          if (i % 2) [a, b] = [b, a];
+          ctx.beginPath();
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q);
+          ctx.stroke();
+        }
+      }
+      V.forEach((v, i) => anchorSq(v[0], v[1], 9, anchorT[i], t, vTw[i]));
+      extras.forEach((v, i) => anchorSq(v[0], v[1], 5.5, extraT[i], t, extraTw[i]));
+    }
+    drawMarks(t);
+    drawHeader(t);
+  }
+
+  function drawHeader(t) {
+    const a = smooth(clamp((t - 0.9) / 0.8));
+    if (a <= 0) return;
+    ctx.font = FONT_S;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#f2f2f0';
+    ctx.globalAlpha = a * 0.92;
+    const y = 56 + ctx.measureText('S').actualBoundingBoxAscent / 2;   // text centred in the band between the 40px and 72px lines
+    ctx.fillText(BRAND, HM_X, y);
+    const ws = NAV.map(n => ctx.measureText(n).width);
+    let x = W - HM_X - (ws.reduce((p, v) => p + v, 0) + NAV_GAP * (NAV.length - 1));
+    NAV.forEach((n, i) => {
+      const h = navH[i];
+      navRects[i] = { x0: x - 12, x1: x + ws[i] + 12, y0: y - 30, y1: y + 22 };
+      ctx.save();
+      ctx.globalAlpha = a * (0.92 + 0.08 * h);
+      ctx.fillStyle = h > 0.01 ? '#ffffff' : '#f2f2f0';
+      ctx.shadowColor = 'rgba(255,255,255,0.95)';
+      ctx.shadowBlur = 14 * smooth(h) * k;
+      ctx.fillText(n, x, y);
+      ctx.shadowBlur = 0;
+      if (h > 0.01) ctx.fillRect(x, y + 7, ws[i] * smooth(h), 1.5);
+      ctx.restore();
+      x += ws[i] + NAV_GAP;
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMarks(t) {
+    marks.forEach((m, idx) => {
+      const d = t - m.t0;
+      if (d < 0) return;
+      const h = m.h;
+      // periodic swell: every ~2.2 s each mark grows, flashes and shrinks again (staggered per mark)
+      const env = clamp((d - 0.6) / 0.6);
+      const pulse = env * (1 - h) * Math.pow(0.5 + 0.5 * Math.sin((t / 2.2) * Math.PI * 2 + idx * 2.1), 2.2);
+      const half = MR * (1 + 0.9 * Math.exp(-d / 0.2)) * (1 + 0.5 * pulse + 0.25 * h);
+      const a = clamp(d / 0.1);
+      ctx.shadowColor = 'rgba(255,255,255,1)';
+      ctx.shadowBlur = (30 * Math.exp(-d / 0.45) + 16 + 46 * pulse + 32 * h) * k;
+      ctx.globalAlpha = a * (0.86 + 0.14 * Math.max(pulse, h));
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(m.x - half, m.y - half, half * 2, half * 2);
+      ctx.fillRect(m.x - half, m.y - half, half * 2, half * 2);
+      ctx.shadowBlur = 0;
+      if (h > 0.01) {
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.font = FONT;
+        m.w = ctx.measureText(m.label).width;
+        const s = smooth(h), tx = m.x + MR + 30, dx = -14 * (1 - s);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tx - 12, m.y - 48, (m.w + 24) * s, 96);
+        ctx.clip();
+        ctx.globalAlpha = s;
+        ctx.fillStyle = '#f2f2f0';
+        ctx.font = FONT_I;
+        ctx.fillText(m.num, tx + dx, m.y - 17);
+        ctx.font = FONT;
+        ctx.fillText(m.label, tx + dx, m.y + 17);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  /* ---------- sizing and loop ---------- */
+  function fit() {
+    const r = stage.getBoundingClientRect();
+    const d = window.devicePixelRatio || 1;
+    k = clamp((r.width * d) / W, 1, 2);
+    cv.width = Math.round(W * k);
+    cv.height = Math.round(H * k);
+  }
+  fit();
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(stage);
+  else window.addEventListener('resize', fit);
+
+  // The intro (points, lines, face) starts once the cover is on screen, after a short black hold.
+  // It always plays: it is the content of the cover, so it ignores reduced-motion skipping.
+  const HOLD_IN = 0.5;
+  let t0 = null, last = performance.now(), visible = true, done = false;
+  const restart = now => {
+    t0 = now + HOLD_IN * 1000;
+    done = false;
+    twk = 0;
+    pieces.forEach(p => { p.e = 0; p.v = 0; p.dir = p.base.slice(); });
+  };
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: 0.4 }).observe(stage);
+  }
+  stage.addEventListener('dblclick', () => restart(performance.now()));
+  const replayBtn = document.getElementById('replay');
+  replayBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  replayBtn.addEventListener('pointermove', e => e.stopPropagation());
+  replayBtn.addEventListener('dblclick', e => e.stopPropagation());
+  replayBtn.addEventListener('click', () => { restart(performance.now()); replayBtn.blur(); });
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.033);
+    last = now;
+    if (!done && (document.hidden || !visible)) t0 = null;
+    else if (t0 === null) { if (done) t0 = now - 20000; else restart(now); }
+    const t = t0 === null ? -1 : (now - t0) / 1000;
+    if (t >= T_READY) done = true;
+    if (typeof setBands === 'function') setBands(easeIO(clamp((t - T_LINE) / 1.3)));
+    update(dt, t);
+    render(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // scrolling moves the stage under a stationary pointer, so drop the hover until the pointer moves again
+  window.addEventListener('scroll', () => { mouseIn = false; }, { passive: true });
+
+  /* ---------- intro section ---------- */
+  const INTRO_H = 1640;
+  const page = document.getElementById('page');
+  const intro = document.getElementById('intro');
+  const introIn = document.getElementById('introIn');
+  const hero = document.getElementById('hero');
+  const photo = document.getElementById('photo');
+  const mk = document.getElementById('mk');
+
+  // The small and medium texts are laid out on the cover's own columns (same x as the vertical grid lines).
+  const colX = { c519: dashXs[0] * SX, c589: dashXs[1] * SX, c819: dashXs[2] * SX, c1100: dashXs[3] * SX, c1330: dashXs[4] * SX, c1400: dashXs[5] * SX, c889: solidXs[0] * SX, c1030: solidXs[1] * SX };
+  const grp = document.createElement('div');
+  introIn.appendChild(grp);
+  // a plate fills one grid column (from its line to the next line), so a text block never touches a line
+  const mkText = (cls, x0, x1, top, h, lines, extra = '') => {
+    const d = document.createElement('div');
+    d.className = 'plate ' + cls;
+    d.style.cssText = `left:${(x0 + 1.2).toFixed(1)}px;top:${top}px;width:${(x1 - x0 - 1.2).toFixed(1)}px;height:${h}px`;
+    d.innerHTML = lines.map((t, i) => `<span class="ln" style="--d:${(i * 0.08).toFixed(2)}s"><span>${t}</span></span>`).join('') + extra;
+    grp.appendChild(d);
+    return d;
+  };
+  // layout after the reference: small info columns mid-right, medium text bottom-right, tiny credits bottom-left
+  const grpTrig = mkText('sm', colX.c889, colX.c1030, 850, 72, ['ABOUT ME', '&amp;']);
+  mkText('sm', colX.c1030, colX.c1330, 850, 72, ['INTERNAL SYSTEM / BH', 'DESIGNER']).style.paddingLeft = '22px';
+  mkText('sm', colX.c1400, 1860, 850, 72, ['STARFOLIO.2026', 'BH']);
+  mkText('md', colX.c1030, 1858, 1152, 180, ['익숙함을 해체하고,', '새로움을 조립하는', '디자이너 이한별입니다.'],
+    '<span class="ln yr" style="--d:.1s"><span>2026</span></span>');
+  mkText('sm bare', -1.2, 480, 1350, 60, ['DESIGNED BY©']).style.paddingLeft = '60px';
+  mkText('sm', colX.c519, colX.c819, 1344, 72, ['PORTFOLIO', '2026']);
+
+  // text: every word rises out of its own mask, one after another
+  document.querySelectorAll('.ln').forEach(line => {
+    const sp = line.firstElementChild;
+    const nodes = [...sp.childNodes];
+    sp.textContent = '';
+    let n = 0;
+    const add = el => {
+      const w = document.createElement('span'), i = document.createElement('i');
+      w.className = 'w';
+      i.style.setProperty('--i', n++);
+      i.appendChild(el);
+      w.appendChild(i);
+      sp.appendChild(w);
+    };
+    nodes.forEach(node => {
+      if (node.nodeType === 3) {
+        node.textContent.split(/(\s+)/).forEach(tok => {
+          if (!tok) return;
+          if (/^\s+$/.test(tok)) sp.appendChild(document.createTextNode(' '));
+          else add(document.createTextNode(tok));
+        });
+      } else add(node);
+    });
+  });
+
+  // grid lines: the cover's own columns continue straight down (same x, same dash and weight), no line motion
+  const mkEl = (cls, css) => {
+    const d = document.createElement('div');
+    d.className = 'gl ' + cls;
+    d.style.cssText = css;
+    introIn.prepend(d);            // lines go behind the text plates
+  };
+  const addV = (cls, x, top, h) => mkEl('v ' + cls, `left:${x.toFixed(1)}px;top:${top}px;height:${h}px`);
+  solidXs.forEach(x => addV('solid', x * SX, 0, INTRO_H));
+  dashXs.forEach((x, i) => addV('dash' + (i >= 6 ? ' faint' : ''), x * SX, 0, INTRO_H));
+  [[240, 'dash'], [640, 'strong'], [720, 'dash'], [1332, 'dash']].forEach(([y, c]) => mkEl('h ' + c, `top:${y}px`));
+
+  // when the screen is taller than 16:9 the cover has empty bands above/below the stage: the same lines run through them
+  const bandT = document.getElementById('bandT'), bandB = document.getElementById('bandB'), coverEl = document.getElementById('cover'), stageEl = document.getElementById('stage');
+  const bandLines = [];
+  [bandT, bandB].forEach(b => {
+    solidXs.forEach(x => { const d = document.createElement('div'); d.className = 'gl v solid'; d.style.left = (x * SX).toFixed(1) + 'px'; b.appendChild(d); });
+    dashXs.forEach((x, i) => { const d = document.createElement('div'); d.className = 'gl v dash' + (i >= 6 ? ' faint' : ''); d.style.left = (x * SX).toFixed(1) + 'px'; b.appendChild(d); bandLines.push([b, d]); });
+  });
+  let bandP = -1;
+  function setBands(p) {      // the bands grow out of the stage edge together with the line motion
+    if (Math.abs(p - bandP) < 0.002 && p > 0 && p < 1) return;
+    bandP = p;
+    const h = ((1 - p) * 100).toFixed(2) + '%';
+    bandT.style.clipPath = `inset(${h} 0 0 0)`;
+    bandB.style.clipPath = `inset(0 0 ${h} 0)`;
+  }
+  function fitBands() {
+    const sc = page.clientWidth / 1920, hb = Math.max(0, (coverEl.clientHeight - stageEl.clientHeight) / 2), hl = hb / sc;
+    [bandT, bandB].forEach(b => { b.style.height = hl + 'px'; b.style.transform = `scale(${sc})`; b.style.display = hb < 0.5 ? 'none' : 'block'; });
+    bandT.style.top = '0px'; bandB.style.top = (coverEl.clientHeight - hb) + 'px';
+    bandLines.forEach(([b, d]) => { d.style.backgroundPosition = b === bandT ? `0 ${((hl - 2.43) % 16 + 16) % 16}px` : '0 -10.43px'; });
+  }
+  function fitIntro() {
+    fitBands();
+    const sc = page.clientWidth / 1920;
+    introIn.style.transform = `scale(${sc})`;
+    intro.style.height = INTRO_H * sc + 'px';
+    onScroll();
+  }
+  let heroOn = false, grpOn = false, tick = false;
+  function onScroll() {
+    const vh = window.innerHeight, r = intro.getBoundingClientRect();
+    if (!heroOn && hero.getBoundingClientRect().top < vh * 0.82) { heroOn = true; hero.classList.add('in'); }
+    if (!grpOn && grpTrig.getBoundingClientRect().top < vh * 0.9) { grpOn = true; grp.classList.add('in'); }
+    // the photo shows from the moment the headline block is scrolled past, until the intro is left behind
+    const passed = mk.getBoundingClientRect().bottom <= vh * 0.72;
+    photo.classList.toggle('on', heroOn && passed && r.bottom > vh * 0.45);
+  }
+  window.addEventListener('scroll', () => {
+    if (tick) return;
+    tick = true;
+    requestAnimationFrame(() => { tick = false; onScroll(); });
+  }, { passive: true });
+  if (window.ResizeObserver) new ResizeObserver(fitIntro).observe(page);
+  else window.addEventListener('resize', fitIntro);
+  fitIntro();
+
+  /* ---------- works section ---------- */
+  // Labels and covers sit on the 240px grid.
+  // Put a real cover into `img` (e.g. img: 'covers/work1.jpg') and it replaces the wireframe.
+  const CELL = 240, PAD_ROWS = 1, FOOT_ROWS = 2;
+  // shape: rows of 'X' (filled grid cell) and '.', so a cover can stick out of its box; col = first grid column.
+  // The label plate (2 cells wide) always sits right on top of the first filled cells, the cover directly below it.
+  const WORKS = [   // row = row of the label; the cover starts on the next row. Neighbours share rows so works come into view together.
+    { title: 'WORK 01 / 작품명', col: 0, row: 0, shape: ['.XX.', 'XXXX', 'XX..'], img: '' },
+    { title: 'WORK 02 / 작품명', col: 5, row: 2, shape: ['XX.', 'XXX', '.XX'], img: '' },
+    { title: 'WORK 03 / 작품명', col: 0, row: 5, shape: ['..XX', 'XXXX'], img: '' },
+    { title: 'WORK 04 / 작품명', col: 5, row: 7, shape: ['.X.', 'XXX', '.X.'], img: '' }
+  ];
+  const works = document.getElementById('works');
+  const worksIn = document.getElementById('worksIn');
+  const wItems = [];
+  let row = 0, WORKS_H = 0;
+  WORKS.forEach((w, wi) => {
+    const gh = w.shape.length, gw = Math.max(...w.shape.map(r => r.length));
+    const W = gw * CELL, H = gh * CELL;
+    const filled = (cx, cy) => (w.shape[cy] || '')[cx] === 'X';
+    const labelRow = w.row, imgRow = w.row + 1;
+    row = Math.max(row, imgRow + gh);
+
+    const box = document.createElement('div');
+    box.className = 'wimg';
+    const cells = [];
+    for (let cy = 0; cy < gh; cy++) for (let cx = 0; cx < gw; cx++) if (filled(cx, cy)) cells.push(cy * gw + cx);
+    box.style.cssText = `left:${w.col * CELL}px;top:${imgRow * CELL}px;width:${W}px;height:${H}px;--st:${Math.max(24, Math.min(60, Math.round(750 / cells.length)))}ms`;
+    const order = cells.slice();
+    const rr = rng(101 + wi * 17);
+    order.sort(() => rr() - 0.5);
+    cells.forEach(id => {
+      const cx = id % gw, cy = Math.floor(id / gw);
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.style.cssText = `left:${cx * CELL}px;top:${cy * CELL}px;--k:${order.indexOf(id)}`;
+      const im = document.createElement('div');
+      im.className = 'timg';
+      im.style.cssText = `left:${-cx * CELL}px;top:${-cy * CELL}px;width:${W}px;height:${H}px`;
+      if (w.img) im.style.backgroundImage = `url("${w.img}")`;
+      else im.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect width="${W}" height="${H}" fill="#d6d6d6"/><line x1="0" y1="0" x2="${W}" y2="${H}" stroke="#6e6e6e" stroke-width="1.2"/><line x1="${W}" y1="0" x2="0" y2="${H}" stroke="#6e6e6e" stroke-width="1.2"/></svg>`;
+      tile.appendChild(im);
+      // outline only along the outer edge of the whole shape
+      const seg = [];
+      if (!filled(cx, cy - 1)) seg.push('M0.6 0.6H239.4');
+      if (!filled(cx, cy + 1)) seg.push('M0.6 239.4H239.4');
+      if (!filled(cx - 1, cy)) seg.push('M0.6 0.6V239.4');
+      if (!filled(cx + 1, cy)) seg.push('M239.4 0.6V239.4');
+      if (seg.length) tile.insertAdjacentHTML('beforeend', `<svg class="tol" width="240" height="240" viewBox="0 0 240 240" aria-hidden="true"><path d="${seg.join('')}" fill="none" stroke="#6e6e6e" stroke-width="1.2"/></svg>`);
+      box.appendChild(tile);
+    });
+    worksIn.appendChild(box);
+
+    const lab = document.createElement('div');
+    lab.className = 'wl';
+    const lc = w.col + w.shape[0].indexOf('X');
+    lab.style.cssText = `left:${lc * CELL + 1}px;top:${labelRow * CELL + 1}px`;
+    lab.innerHTML = '<div class="wlt"><i></i><span></span></div>';
+    lab.querySelector('span').textContent = w.title;
+    const t = lab.firstChild;
+    t.addEventListener('pointerenter', () => lab.classList.add('hov'));
+    t.addEventListener('pointerleave', () => lab.classList.remove('hov'));
+    worksIn.appendChild(lab);
+    wItems.push({ box, lab });
+  });
+  WORKS_H = (row + PAD_ROWS) * CELL;
+  const FOOT_H = FOOT_ROWS * CELL, TOTAL_H = WORKS_H + FOOT_H;
+
+  // contact footer on the same 240px grid: info in columns 1-4, huge title sitting on the bottom line
+  const colInfo = (c, top, h, cls, html) => {
+    const d = document.createElement('div');
+    d.className = 'fi ' + cls;
+    d.style.cssText = `left:${c * CELL + 1}px;top:${WORKS_H + top * CELL + 28}px`;
+    d.innerHTML = html;
+    worksIn.appendChild(d);
+  };
+  colInfo(3, 0, 238, '', '<b>Mail</b><span>mail@example.com</span>');
+  colInfo(4, 0, 238, '', '<b>Phone</b><span>010-0000-0000</span>');
+  colInfo(5, 0, 238, '', '<b>Social media</b><span>ig&nbsp;&nbsp;@starfolio__</span><span>be&nbsp;&nbsp;@starfolio__</span>');
+  colInfo(6, 0, 238, '', '<b>Address</b><span>Seoul, Korea</span><span>Mon–Sun&nbsp;&nbsp;9am–6pm</span>');
+  const mkBox = (x, y, w, h) => { const d = document.createElement('div'); d.style.cssText = `position:absolute;z-index:2;background:#f2f2f2;left:${x}px;top:${y}px;width:${w}px;height:${h}px`; worksIn.appendChild(d); };
+  mkBox(3 * CELL + 1, WORKS_H + 1, 1920 - 3 * CELL - 1, CELL - 1);              // info text box
+  mkBox(3 * CELL + 1, WORKS_H + CELL + 1, 1920 - 3 * CELL - 1, CELL - 1);       // title box
+  const fbig = document.createElement('div');
+  fbig.className = 'fbig';
+  fbig.textContent = '/STARFOLIO';
+  worksIn.appendChild(fbig);
+  function fitBig() {       // title spans the page from margin to margin, letters sit on the bottom line
+    fbig.style.fontSize = '100px';
+    const w = fbig.getBoundingClientRect().width / (works.clientWidth / 1920);
+    const L = 3 * CELL + 24, fs = 100 * (1860 - L) / w;   // left edge on the same line as the info columns, right margin 60
+    fbig.style.left = L + 'px';
+    fbig.style.fontSize = fs + 'px';
+    fbig.style.top = (TOTAL_H - fs * 0.74 - fs * 0.02) + 'px';
+  }
+
+  function fitWorks() {
+    const sc = works.clientWidth / 1920;
+    worksIn.style.transform = `scale(${sc})`;
+    worksIn.style.height = TOTAL_H + 'px';
+    works.style.height = TOTAL_H * sc + 'px';
+    fitBig();
+    onWorksScroll();
+  }
+  // each cover builds itself tile by tile when its block scrolls into view, and then stays
+  function onWorksScroll() {
+    const vh = window.innerHeight;
+    wItems.forEach(({ box, lab }) => {
+      if (box.getBoundingClientRect().top < vh * 0.82) { box.classList.add('on'); lab.classList.add('in'); }
+    });
+  }
+  window.addEventListener('scroll', onWorksScroll, { passive: true });
+  if (window.ResizeObserver) new ResizeObserver(fitWorks).observe(works);
+  else window.addEventListener('resize', fitWorks);
+  fitWorks();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitWorks);
+})();
+</script>
+
+</body></html>
