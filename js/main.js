@@ -495,6 +495,11 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
     return Math.min(ideal, Math.max(heroClear, worksClear)); };
   const navTarget = t => t === 'about' ? aboutTarget()
                        : t === 'project' ? WORKS_TITLE + LOWER + GAP1 + GAP2 - 245 : CONTACT_TOP + LOWER + CG + GAP1 + GAP2;
+  document.querySelectorAll('.nav-hit[data-tab]').forEach(r => {
+    const tab = document.getElementById('tab' + r.dataset.tab);
+    r.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') tab.classList.add('hov'); });
+    r.addEventListener('pointerleave', () => tab.classList.remove('hov'));
+  });
   document.querySelectorAll('.nav-hit').forEach(r => r.addEventListener('click', () => {
     if (r.dataset.t === 'home') { replayHome(); return; }
     const top = svg.getBoundingClientRect().top + scrollY + navTarget(r.dataset.t) * S;
