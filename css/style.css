@@ -19,6 +19,15 @@ html, body { margin: 0; padding: 0; background: #F2F2F2; }
   #pimg.on { opacity: 1; transition: opacity .6s cubic-bezier(.3,0,.2,1) .04s; }
   #sfDots circle { opacity: 0; transform-box: fill-box; transform-origin: center; }
   #nav { position: fixed; left: 0; top: 0; width: 100%; height: auto; display: block; z-index: 10; pointer-events: none; }
-  #nav .nav-hit { pointer-events: all; cursor: pointer; }
+  /* the logo star is the cursor wherever something reacts to the pointer (a touch larger than a normal cursor) */
+  :root { --logo-cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='37 38 52 52'><path d='M63.4428 63.7439L83.5608 52.0017L84 52.7717L63.879 64.5152L83.5582 76.0017L83.1186 76.7717L63.4428 65.2873V88H62.5636V65.2834L42.8818 76.7717L42.4422 76.0017L62.1201 64.5152L42 52.7717L42.4396 52.0017L62.5636 63.7474V40H63.4428V63.7439Z' fill='black' stroke='black' stroke-width='3'/></svg>") 12 12, pointer; }
+  #nav .nav-hit { pointer-events: all; cursor: var(--logo-cursor); }
+  html.fx, html.fx body { cursor: var(--logo-cursor); }
+  /* Works: each project lifts a little on hover */
+  .card { transition: transform .55s cubic-bezier(.22,1,.36,1); }
+  .card.hov { transform: translateY(-10px); }
+  /* …and its photo zooms in a touch, inside its own frame */
+  .card .wimg { transform-box: fill-box; transform-origin: center; transition: transform .8s cubic-bezier(.22,1,.36,1); }
+  .card.hov .wimg { transform: scale(1.05); }
 
-  .no-motion .rv, .no-motion .ln, .no-motion #pimg { transition: none !important; }
+  .no-motion .rv, .no-motion .ln, .no-motion #pimg, .no-motion .card, .no-motion .wimg { transition: none !important; }
