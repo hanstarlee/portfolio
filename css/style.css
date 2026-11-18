@@ -33,4 +33,5 @@ html, body { margin: 0; padding: 0; background: #F2F2F2; }
   .card .wimg { transform-box: fill-box; transform-origin: center; transition: transform .8s cubic-bezier(.22,1,.36,1); }
   .card.hov .wimg { transform: scale(1.05); }
 
+  .rv-reset .rv, .rv-reset .ln { transition: none !important; }
   .no-motion .rv, .no-motion .ln, .no-motion #pimg, .no-motion .card, .no-motion .wimg, .no-motion .tab { transition: none !important; }

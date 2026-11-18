@@ -43,14 +43,14 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
   const items = [];
   document.querySelectorAll('[data-g]').forEach(el => {
     const zone = el.closest('#nav') ? 3 : el.closest('#foot') ? 4 : el.closest('#lower') ? 2 : el.closest('#mid') ? 1 : 0;
-    let top;
+    let top, len = 0;
     if (el.tagName === 'line') {
-      const len = Math.hypot(el.x2.baseVal.value - el.x1.baseVal.value, el.y2.baseVal.value - el.y1.baseVal.value);
+      len = Math.hypot(el.x2.baseVal.value - el.x1.baseVal.value, el.y2.baseVal.value - el.y1.baseVal.value);
       el.style.strokeDasharray = `${len}px ${len}px`;
       el.style.strokeDashoffset = `${len}px`;
       top = Math.min(el.y1.baseVal.value, el.y2.baseVal.value);
     } else top = el.getBBox().y;
-    items.push({ el, g: el.dataset.g, top, zone, d: parseFloat(el.style.getPropertyValue('--d')) || 0, done: false,
+    items.push({ el, g: el.dataset.g, top, zone, len, d: parseFloat(el.style.getPropertyValue('--d')) || 0, done: false,
                  star: !!(el.querySelector && el.querySelector('#star')) });
   });
   const zoneOff = z => z === 4 ? LOWER + CG + GAP1 + GAP2 : z === 2 ? LOWER + GAP1 + GAP2 : z === 1 ? ABOUT_TOP + GAP1 : 0;
@@ -65,7 +65,24 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
     } else el.classList.add('in');
     if (it.star) starArm();
   };
+  // Tabs: every section's motion plays again. Everything is put back to its "before" state at once,
+  // and the reveals resume when the page has arrived (so the destination plays in full).
+  let navScrolling = false;
+  function resetReveals() {
+    const root = document.documentElement;
+    root.classList.add('rv-reset');
+    for (const it of items) {
+      if (it.zone === 3) continue;                       // the nav itself stays put
+      it.done = false;
+      if (it.el.tagName === 'line') { it.el.style.strokeDasharray = `${it.len}px ${it.len}px`; it.el.style.strokeDashoffset = `${it.len}px`; }
+      else it.el.classList.remove('in');
+    }
+    if (typeof starReset === 'function') starReset();
+    svg.getBoundingClientRect(); void svg.offsetWidth;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('rv-reset')));
+  }
   const checkReveal = () => {
+    if (navScrolling) return;
     const r = svg.getBoundingClientRect(); const s = r.width / 1920;
     const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
     const limit = atEnd ? innerHeight : innerHeight * 0.92;
@@ -156,8 +173,9 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
   function replayHome() {
     const startWhenTop = () => {
       if (homeWait) { removeEventListener('scroll', homeWait.fn); clearTimeout(homeWait.t); homeWait = null; }
-      sf.style.opacity = 1; intro();
+      sf.style.opacity = 1; intro(); navArrived();
     };
+    resetReveals(); navScrolling = true;
     if (scrollY < 4) {                             // already here: ease the word out, then replay
       sf.style.opacity = 0;
       setTimeout(() => { resetIntro(); startWhenTop(); }, 340);
@@ -330,6 +348,7 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
   const STAR_Y0 = 244, STAR_Y1 = 292;                      // About.svg coordinates
   const PERIOD = 4600, OUT = 1150, HOLD = 600, BACK = 1150, SPREAD = 9, ROT = [-14, 12, -12, 14, -12, 12];
   function starArm() { ST.armed = true; checkStar(); }
+  function starReset() { ST.armed = false; ST.on = false; arms.forEach(a => a.removeAttribute('transform')); }
   function starFrame(now) {
     ST.raf = 0;
     if (!ST.on) return;
@@ -500,10 +519,27 @@ const CFG = {"subs": [{"s": [87.569, 192.981, 298.394, 403.806, 509.218, 614.63,
     r.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') tab.classList.add('hov'); });
     r.addEventListener('pointerleave', () => tab.classList.remove('hov'));
   });
+  let navDest = 0, navIdle = 0, navGuard = 0;
+  function navArrived() {
+    clearTimeout(navIdle); clearTimeout(navGuard);
+    if (!navScrolling) return;
+    navScrolling = false; checkReveal(); checkStar();
+  }
+  addEventListener('scroll', () => {
+    if (!navScrolling || homeWait) return;
+    clearTimeout(navIdle);
+    if (Math.abs(scrollY - navDest) < 2) navArrived(); else navIdle = setTimeout(navArrived, 220);
+  }, { passive: true });
   document.querySelectorAll('.nav-hit').forEach(r => r.addEventListener('click', () => {
+    if (A.open !== -1) setOpen(-1);
     if (r.dataset.t === 'home') { replayHome(); return; }
     const top = svg.getBoundingClientRect().top + scrollY + navTarget(r.dataset.t) * S;
-    scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' });
+    navDest = Math.max(0, Math.min(Math.round(top), document.documentElement.scrollHeight - innerHeight));
+    resetReveals(); navScrolling = true;
+    clearTimeout(navIdle); clearTimeout(navGuard);
+    navIdle = setTimeout(navArrived, 220);              // already there → replay right away
+    navGuard = setTimeout(navArrived, 2000);
+    scrollTo({ top: navDest, behavior: reduce ? 'auto' : 'smooth' });
   }));
 
   requestAnimationFrame(() => requestAnimationFrame(() => { checkReveal(); checkStar(); intro(); }));
